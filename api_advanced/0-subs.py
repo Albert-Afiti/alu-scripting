@@ -1,7 +1,15 @@
 #!/usr/bin/python3
 """
-Script that queries the Reddit API and returns the number of subscribers
-for a given subreddit.
+Module: 0-subs
+This module defines a function that queries the Reddit API and returns
+the number of subscribers for a given subreddit.
+
+Usage:
+    >>> from 0-subs import number_of_subscribers
+    >>> number_of_subscribers("programming")
+    756024
+    >>> number_of_subscribers("this_is_a_fake_subreddit")
+    0
 
 Requirements:
 - Uses requests module
