@@ -1,51 +1,44 @@
 #!/usr/bin/python3
-"""
-Script that queries the Reddit API and returns a list containing the
-titles of all hot articles for a given subreddit using recursion.
-
-Requirements:
-- Uses requests module
-- Prototype: def recurse(subreddit, hot_list=[])
-- If not a valid subreddit, return None
-- Must not follow redirects (invalid subreddits may redirect to search)
-- Must set a custom User-Agent to avoid Too Many Requests errors
-- Must use recursion (no loops)
-"""
+"""Script that fetch all hot post for a given subreddit with recursive call."""
 
 import requests
 
+headers = {'User-Agent': 'MyAPI/0.0.1'}
 
-def recurse(subreddit, hot_list=None, after=None):
-    """
-    Recursively fetch all hot article titles for a given subreddit.
-    Returns a list of titles, or None if invalid subreddit.
-    """
-    if hot_list is None:
-        hot_list = []
 
-    url = f"https://www.reddit.com/r/{subreddit}/hot.json"
-    headers = {"User-Agent": "python:recurse.hot.posts:v1.0 (by /u/test_user)"}
-    params = {"after": after, "limit": 100}
+def recurse(subreddit, after="", hot_list=[], page_counter=0):
+    """Return all hot posts in a subreddit."""
 
-    try:
-        response = requests.get(
-            url, headers=headers, params=params, allow_redirects=False
-        )
-        if response.status_code != 200:
-            return None
+    subreddit_url = "https://reddit.com/r/{}/hot.json".format(subreddit)
 
-        data = response.json().get("data")
-        if data is None:
-            return None
+    parameters = {'limit': 100, 'after': after}
+    response = requests.get(subreddit_url, headers=headers, params=parameters)
 
-        children = data.get("children", [])
-        for post in children:
-            hot_list.append(post.get("data", {}).get("title"))
+    if response.status_code == 200:
+        json_data = response.json()
+        # get the 'after' value from the response to pass it on the request
 
-        after = data.get("after")
+        # get title and append it to the hot_list
+        for child in json_data.get('data').get('children'):
+            title = child.get('data').get('title')
+            hot_list.append(title)
+
+        # variable after indicates if there is data on the next pagination
+        # on the reddit API after holds a unique name for that subreddit page.
+        # if it is None it indicates it is the last page.
+        after = json_data.get('data').get('after')
         if after is not None:
-            return recurse(subreddit, hot_list, after)
 
-        return hot_list if hot_list else None
-    except Exception:
+            page_counter += 1
+            # print(len(hot_list))
+            return recurse(subreddit, after=after,
+                           hot_list=hot_list, page_counter=page_counter)
+        else:
+            return hot_list
+
+    else:
         return None
+
+
+if __name__ == '__main__':
+    print(recurse("zerowastecz"))

@@ -1,74 +1,77 @@
 #!/usr/bin/python3
-"""
-Script that queries the Reddit API, parses the titles of all hot articles,
-and prints a sorted count of given keywords.
+"""A script that counts the number of occurrences of list of words
+in a given subreddit."""
 
-Requirements:
-- Uses requests module
-- Prototype: def count_words(subreddit, word_list)
-- If not a valid subreddit, print nothing
-- Must not follow redirects (invalid subreddits may redirect to search)
-- Must set a custom User-Agent to avoid Too Many Requests errors
-- Must use recursion (no loops)
-- Case-insensitive keyword matching
-- Duplicate keywords in word_list should be summed
-- Results printed in descending order by count, then alphabetically
-- Words with no matches should be skipped
-"""
-
+from audioop import reverse
 import requests
 
+headers = {'User-Agent': 'MyAPI/0.0.1'}
 
-def count_words(subreddit, word_list, hot_list=None, after=None, counts=None):
-    """
-    Recursively fetch all hot article titles for a given subreddit and
-    count occurrences of keywords in word_list.
-    """
-    if hot_list is None:
-        hot_list = []
-    if counts is None:
-        # Normalize word_list to lowercase and handle duplicates
-        counts = {}
-        for word in word_list:
-            word_lower = word.lower()
-            counts[word_lower] = counts.get(word_lower, 0)
 
-    url = f"https://www.reddit.com/r/{subreddit}/hot.json"
-    headers = {"User-Agent": "python:count.words:v1.0 (by /u/test_user)"}
-    params = {"after": after, "limit": 100}
+def count_words(subreddit, word_list, after="", hot_list=[]):
+    """print the sorted count of word_list."""
 
-    try:
-        response = requests.get(
-            url, headers=headers, params=params, allow_redirects=False
-        )
-        if response.status_code != 200:
+    subreddit_url = "https://reddit.com/r/{}/hot.json".format(subreddit)
+
+    parameters = {'limit': 100, 'after': after}
+    response = requests.get(subreddit_url, headers=headers, params=parameters)
+
+    if response.status_code == 200:
+
+        # print(response.status_code)
+        json_data = response.json()
+        if (json_data.get('data').get('dist') == 0):
             return
+        # get the 'after' value from the response to pass it on the request
 
-        data = response.json().get("data")
-        if data is None:
-            return
+        # get title and append it to the hot_list
+        for child in json_data.get('data').get('children'):
+            title = child.get('data').get('title')
+            hot_list.append(title)
 
-        children = data.get("children", [])
-        for post in children:
-            title = post.get("data", {}).get("title", "").lower()
-            words = title.split()
-            for word in words:
-                if word in counts:
-                    counts[word] += 1
-
-        after = data.get("after")
+        # variable after indicates if there is data on the next pagination
+        # on the reddit API after holds a unique name for that subreddit page.
+        # if it is None it indicates it is the last page.
+        after = json_data.get('data').get('after')
         if after is not None:
-            return count_words(subreddit, word_list, hot_list, after, counts)
+            # print("got next page")
+            # print(len(hot_list))
+            return count_words(subreddit, word_list,
+                               after=after, hot_list=hot_list)
+        else:
+            # put the initial words counter dictionary
+            counter = {}
+            for word in word_list:
+                word = word.lower()
+                if word not in counter.keys():
+                    counter[word] = 0
+                else:
+                    counter[word] += 1
+            # loop through the hot_list to check if word is found in the list
+            for title in hot_list:
+                title_list = title.lower().split(' ')
+                for word in counter.keys():
+                    search_word = "{}".format(word)
+                    if search_word in title_list:
+                        counter[word] += 1
+            sorted_counter = dict(
+                sorted(counter.items(),
+                       key=lambda item: item[1], reverse=True))
+            for key, value in sorted_counter.items():
+                if value > 0:
+                    print("{}: {}".format(key, value))
+            # print(hot_list)
 
-        # Print results
-        filtered = {k: v for k, v in counts.items() if v > 0}
-        if not filtered:
-            return
-
-        sorted_counts = sorted(
-            filtered.items(), key=lambda item: (-item[1], item[0])
-        )
-        for word, count in sorted_counts:
-            print(f"{word}: {count}")
-    except Exception:
+    else:
         return
+
+
+if __name__ == '__main__':
+    count_words("hello", ['REDDIT', 'german', 'HI', 'whynot'])
+    count_words('unpopular', ['down', 'vote', 'downvote',
+                              'you', 'her', 'unpopular', 'politics'])
+    # count_words("hello", ['hello', 'hello', 'hello'])
+    # count_words("unpopular", ["react", "python", "java",
+    # "javascript", "scala", "no_result_for_this"])
+
+    # count_words('hello', ['hello', 'hello', 'hello'])
